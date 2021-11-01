@@ -33,12 +33,14 @@ import OpenGL.GL as gl
 from imgui.integrations.sdl2 import SDL2Renderer
 import ctypes
 import imgui
+from gl_util import GlRgbTexture
 
 class ImguiSdlWrapper:
     def __init__(self, name, width, height):
         self.name = name
         self.width = width
         self.height = height
+        self._rgb_textures = {}
 
         # Boilerplate adapted from https://github.com/pyimgui/pyimgui/blob/master/doc/examples/integrations_pysdl2.py
         # The original LICENSE file from the repo is reproduced below.
@@ -130,7 +132,24 @@ class ImguiSdlWrapper:
         self.impl.render(imgui.get_draw_data())
         SDL_GL_SwapWindow(self.window)
 
+    def add_image(self, image_id, image):
+        # image should be numpy int8 array (height, width, 3)
+        texture = GlRgbTexture(image.shape[1], image.shape[0])
+        texture.update(image)
+        self._rgb_textures[image_id] = texture
+        return texture.texture_id
+
+    def get_image(self, image_id):
+        # texture_id usable for imgui.image(...)
+        texture = self._rgb_textures[image_id]
+        return (texture.texture_id, texture.width, texture.height)
+
+    def update_image(self, image_id, image):
+        # image should be numpy int8 array (height, width, 3)
+        self._rgb_textures[image_id].update(image)
+
     def destroy(self):
+        del self._rgb_textures
         self.impl.shutdown()
         SDL_GL_DeleteContext(self.gl_context)
         SDL_DestroyWindow(self.window)
